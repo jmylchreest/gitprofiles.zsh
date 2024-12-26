@@ -56,7 +56,7 @@ zplug empresslabs/gitprofiles.plugin.zsh
 ```sh
 # ~/.zshrc
 
-zstyle ":empresslabs:git:profiles" path "$HOME/.config/git/profiles"
+zstyle ":empresslabs:git:profile" path "$HOME/.config/git/profiles"
 ```
 
 #### Add a new profile
