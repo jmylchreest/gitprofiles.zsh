@@ -1,10 +1,10 @@
 <p align="center">
   <a href="#gh-dark-mode-only" target="_blank" rel="noopener noreferrer">
-    <img src=".github/assets/night.svg" alt="git-extra-profiles.plugin.zsh">
+    <img src=".github/assets/night.svg" alt="gitprofiles.plugin.zsh">
   </a>
 
   <a href="#gh-light-mode-only" target="_blank" rel="noopener noreferrer">
-    <img src=".github/assets/day.svg" alt="git-extra-profiles.plugin.zsh">
+    <img src=".github/assets/day.svg" alt="gitprofiles.plugin.zsh">
   </a>
 </p>
 
@@ -14,53 +14,52 @@ Plugin for managing multiple `git` profiles.
 
 ## Installation
 
-### Using [oh-my-zsh](https://github.com/ohmyzsh/ohmyzsh)
+#### [oh-my-zsh](https://github.com/ohmyzsh/ohmyzsh)
 
-```sh
-git clone https://github.com/baliestri/git-profiles.plugin.zsh.git $ZSH_CUSTOM/plugins/git-profiles
+```shell
+git clone https://github.com/empresslabs/gitprofiles.plugin.zsh.git $ZSH_CUSTOM/plugins/gitprofiles
 ```
 
-Then add `git-profiles` to the plugins array in your zshrc file:
-
-```sh
-plugins=(... git-profiles)
+```shell
+~/.zshrc
+plugins=(... gitprofiles)
 ```
 
-### Using [zplug](https://github.com/zplug/zplug)
+#### [zinit](https://github.com/zdharma-continuum/zinit)
 
-```sh
-zplug "baliestri/git-profiles.plugin.zsh"
+```shell
+zinit light empresslabs/gitprofiles.plugin.zsh
 ```
 
-### Using [zinit](https://github.com/zdharma-continuum/zinit)
+#### [zi](https://github.com/z-shell/zi)
 
-```sh
-zinit light baliestri/git-profiles.plugin.zsh
+```shell
+zi light empresslabs/gitprofiles.plugin.zsh
 ```
 
-### Using [zgenom](https://github.com/jandamm/zgenom)
+#### [zgenom](https://github.com/jandamm/zgenom)
 
-```sh
-zgenom load baliestri/git-profiles.plugin.zsh
+```shell
+zgenom load empresslabs/gitprofiles.plugin.zsh
 ```
 
-### Using [zi](https://github.com/z-shell/zi)
+#### [zplug](https://github.com/zplug/zplug)
 
-```sh
-zi light baliestri/git-profiles.plugin.zsh
+```shell
+zplug empresslabs/gitprofiles.plugin.zsh
 ```
 
 ## Usage
 
-### Define where your profiles are stored
+#### Define where your profiles are stored
 
 ```sh
 # ~/.zshrc
 
-export GIT_PROFILES_FILE="$HOME/.config/git/profiles" # Fallback to $HOME/.git-profiles
+zstyle ":empresslabs:git:profiles" path "$HOME/.config/git/profiles"
 ```
 
-### Add a new profile
+#### Add a new profile
 
 ```sh
 # ~/.config/git/profiles
