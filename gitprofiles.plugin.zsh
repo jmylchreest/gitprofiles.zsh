@@ -90,6 +90,11 @@ function __gitprofiles_hook() {
       path_pattern="${path_pattern## }"
       path_pattern="${path_pattern%% }"
 
+      if [[ -n "${DEBUG}"]]; then
+        echo "Checking path pattern: ${path_pattern}"
+        echo "Current directory: ${current_dir}"
+      fi
+
       if [[ "${current_dir}" =~ "${path_pattern}" ]]; then
         matched_profile="${profile}"
         break 2
