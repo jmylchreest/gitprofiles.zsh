@@ -21,62 +21,137 @@ function __gitprofiles_hook() {
     return 1
   fi
 
-  ## Load all stored profiles
-  local profiles=($(grep -o '\[profile [^]]*\]' ${profile_filepath} | tr -d '[]" ' | sed 's/profile//g' | tr '\n' ' '))
-
-  ## Check if default profile exists
-  if [[ ! "${profiles}" =~ "default" ]]; then
-    echo "gitprofiles: 'default' profile not found in '${profile_filepath}'"
-    return 1
-  fi
-
   # Ensure glob patterns that don't match don't cause errors
   setopt LOCAL_OPTIONS NO_NOMATCH
 
-  # Function to parse paths into an array and support tidle expansion
+  ## Load all stored profiles
+  local profiles=()
+  local current_section=""
+
+  while IFS= read -r line; do
+    # Skip empty lines and comments
+    [[ -z "$line" || "$line" == \#* ]] && continue
+
+    # Check for profile section
+    if [[ "$line" =~ '^\[profile[[:space:]]+"([^"]+)"\]' ]]; then
+      current_section="${match[1]}"
+      profiles+=("$current_section")
+      [[ -n "${GP_DEBUG}" ]] && print -u2 "Found profile: ${current_section}"
+    fi
+  done < "${profile_filepath}"
+
+  ## Check if default profile exists
+  if [[ ! "${profiles[(r)default]}" ]]; then
+    print -u2 "gitprofiles: 'default' profile not found in '${profile_filepath}'"
+    return 1
+  fi
+
+  # Function to parse paths into an array and support tilde expansion
   function __parse_paths() {
-    local raw_paths="${(j:\n:)@}"              # join args with newlines
-    local temp=(${(s:,:)raw_paths})           # split on commas first
-    # Now split each part by newlines
-    local paths=()
-    for part in $temp; do
-      paths+=(${(f)part})                     # split on newlines
+    local raw_paths="$1"
+    # [[ -n "${GP_DEBUG}" ]] && print -u2 "Raw paths input: ${(q)raw_paths}"
+
+    local -a path_lines
+    # split on commas or newlines
+    path_lines=(${(s:,:)${(f)raw_paths}})
+
+    # Process each line
+    local -a paths
+    local line
+    for line in $path_lines; do
+      # remove newlines
+      line="${line//'\n'/}"
+
+      # remove quotes
+      line="${line//[\"\']}"
+
+      # Remove trailing commas
+      line="${line%%,}"
+
+      # Trim whitespace
+      line="${line## }"
+      line="${line%% }"
+
+      # Expand tildes
+      if [[ $line = "~"* ]]; then
+        line=${HOME}${line#"~"}
+      fi
+
+      # Skip empty lines
+      [[ -n "$line" ]] && paths+=("$line")
     done
 
-    # Process each path
-    paths=(${paths##[[:space:]]})             # Trim leading spaces
-    paths=(${paths%%[[:space:]]})             # Trim trailing spaces
-    paths=(${~paths})                         # Expand tilde
-    paths=(${paths:#})                        # Remove empty elements
+    # Expand tildes
+    #  paths=(${~paths}) # this doesnt work as it expands the glob
 
-    echo ${paths}
-}
+    # [[ -n "${GP_DEBUG}" ]] && print -u2 "Final paths: ${paths}"
+    print -l -- ${paths}
+  }
 
-  ## Iterate over all profiles to get the name, email, signingkey and path
+  ## Parse configuration for each profile
   for profile in ${profiles}; do
     typeset -A profile_value_map
+    local in_current_profile=0
+    local in_paths=0
+    local paths_tmp=()
 
-    while read -r key value; do
-      case "${key}" in
-        name|email|signingkey)
-          profile_value_map[${key}]="${value}"
-          ;;
-        path|paths)
-          profile_value_map[paths]="${value}"
-          ;;
-      esac
-    done < <(awk -F ' = ' '/^\[profile/{p=0} /^\[profile "[^"]*'"${profile}"'"/{p=1} p {gsub(/"/, "", $2); print $1,$2}' ${profile_filepath})
+    while IFS= read -r line; do
+      # Skip empty lines and comments
+      [[ -z "$line" || "$line" == \#* ]] && continue
 
-    # Parse paths
-    if [[ -n "${profile_value_map[paths]}" ]]; then
-      profile_paths_map[${profile}]="$(__parse_paths "${profile_value_map[paths]}")"
+      # Check for profile section
+      if [[ "$line" =~ '^\[profile[[:space:]]+"([^"]+)"\]' ]]; then
+        if [[ "${match[1]}" == "$profile" ]]; then
+          in_current_profile=1
+        else
+          in_current_profile=0
+          in_paths=0
+        fi
+        continue
+      fi
+
+      # Only process lines for current profile
+      (( in_current_profile )) || continue
+
+      # Parse key-value pairs
+      if [[ "$line" =~ '^[[:space:]]*([^=]+)[[:space:]]*=[[:space:]]*(.*)' ]]; then
+        local key="${match[1]## }"    # Trim leading spaces
+        key="${key%% }"               # Trim trailing spaces
+        local value="${match[2]}"     # Keep spaces in value for now
+
+        case "$key" in
+          name|email|signingkey)
+            # Remove quotes and trim for non-path values
+            value="${value## }"       # Trim leading spaces
+            value="${value%% }"       # Trim trailing spaces
+            value="${value#[\"\']}"   # Remove leading quote
+            value="${value%[\"\']}"   # Remove trailing quote
+            profile_value_map[$key]="$value"
+            ;;
+          path|paths)
+            in_paths=1
+            paths_tmp=("$value")
+            ;;
+        esac
+      elif (( in_paths )) && [[ "$line" =~ '^[[:space:]]+(.*)' ]]; then
+        # Handle indented continuation lines for paths
+        local value="${match[1]}"
+        paths_tmp+=("$value")
+      fi
+    done < "${profile_filepath}"
+
+    # Join and parse paths
+    if (( ${#paths_tmp} > 0 )); then
+      local joined_paths="${(j:\n:)paths_tmp}"
+      profile_paths_map[$profile]="${(@f)$(__parse_paths "$joined_paths")}"
     fi
 
-    profile_cfg_map[${profile}.name]="${profile_value_map[name]}"
-    profile_cfg_map[${profile}.email]="${profile_value_map[email]}"
+    # Store other configurations
+    profile_cfg_map[$profile.name]="${profile_value_map[name]}"
+    profile_cfg_map[$profile.email]="${profile_value_map[email]}"
 
-    if [[ -n "${profile[signingkey]}" ]]; then
-      profile_cfg_map[${profile}.signingkey]="${profile_value_map[signingkey]}"
+    if [[ -n "${profile_value_map[signingkey]}" ]]; then
+      profile_cfg_map[$profile.signingkey]="${profile_value_map[signingkey]}"
     fi
   done
 
@@ -84,16 +159,15 @@ function __gitprofiles_hook() {
   local current_dir=$(pwd)
   local matched_profile="default"
 
-  [[ -n "${DEBUG}" ]] && echo "Current directory: ${current_dir}"
+  [[ -n "${GP_DEBUG}" ]] && print -u2 "Current directory: ${current_dir}"
 
   # Check if current directory matches any profile paths
   for profile in ${(k)profile_paths_map}; do
-    [[ -n "${DEBUG}" ]] && echo "Testing Profile: ${profile}"
+    [[ -n "${GP_DEBUG}" ]] && print -u2 "Testing Profile: ${profile}"
 
-    local paths=(${=profile_paths_map[${profile}]})  # Convert to array
-
+    local paths=(${=profile_paths_map[$profile]})  # Convert to array
     for path_pattern in $paths; do
-      [[ -n "${DEBUG}" ]] && echo "Checking path pattern: ${path_pattern}"
+      [[ -n "${GP_DEBUG}" ]] && print -u2 "Testing path pattern: ${path_pattern}"
 
       if [[ "${current_dir}" =~ "${path_pattern}" ]]; then
         matched_profile="${profile}"
@@ -111,17 +185,16 @@ function __gitprofiles_hook() {
     git config --global user.signingkey "${profile_cfg_map[${matched_profile}.signingkey]}"
   fi
 
-  # Print debug information if DEBUG is set
-  if [[ -n "${DEBUG}" ]]; then
-    echo "Matched profile: ${matched_profile}"
-    echo "Using configuration:"
-    echo "  name: ${profile_cfg_map[${matched_profile}.name]}"
-    echo "  email: ${profile_cfg_map[${matched_profile}.email]}"
+  # Print debug information if GP_DEBUG is set
+  if [[ -n "${GP_DEBUG}" ]] && [[ -n "${matched_profile}" ]]; then
+    print -u2 "Matched profile: ${matched_profile}"
+    print -u2 "Using configuration:"
+    print -u2 "  name: ${profile_cfg_map[${matched_profile}.name]}"
+    print -u2 "  email: ${profile_cfg_map[${matched_profile}.email]}"
     if [[ -n "${profile_cfg_map[${matched_profile}.signingkey]}" ]]; then
-      echo "  signingkey: ${profile_cfg_map[${matched_profile}.signingkey]}"
+      print -u2 "  signingkey: ${profile_cfg_map[${matched_profile}.signingkey]}"
     fi
   fi
 }
-
 
 add-zsh-hook chpwd __gitprofiles_hook
