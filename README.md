@@ -49,6 +49,14 @@ zgenom load empresslabs/gitprofiles.plugin.zsh
 zplug empresslabs/gitprofiles.plugin.zsh
 ```
 
+#### [antidote](https://github.com/mattmc3/antidote.git)
+
+Add the following to your .zsh_plugins.txt file for antidote:
+
+```shell
+empresslabs/gitprofiles.plugin.zsh
+```
+
 ## Usage
 
 #### Define where your profiles are stored
@@ -73,5 +81,17 @@ zstyle ":empresslabs:git:profile" path "$HOME/.config/git/profiles"
   name = Bruno Sales
   email = work@baliestri.dev
   # signingkey = 1234567890
-  path = "/home/baliestri/work"
+  paths = "/home/baliestri/work"
+
+[profile "personal"]
+  name = Bruno Sales
+  email = personal@baliestri.dev
+  # signingkey = 1234567890
+  paths = "~/personal",
+    "~/src/personal/*",
+    "~/src/mytopsecretproject"
 ```
+
+Multiple paths can be defined for a profile, separated by either newline or commas. The paths are processed in the order they are defined, with exact matches taking precedence over wild card matches. Tildes are expanded to ${HOME}.
+
+It is possible to get debug information by setting the `GP_DEBUG` environment variable to any value within your current session.
