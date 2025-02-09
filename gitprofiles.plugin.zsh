@@ -35,15 +35,22 @@ function __gitprofiles_hook() {
 
   # Function to parse paths into an array and support tidle expansion
   function __parse_paths() {
-    local raw_paths="${(j:\n:)@}" # join on newlines
-    local paths=(${(f)${(s:,:)raw_paths}}) # split on commas & newlines
+    local raw_paths="${(j:\n:)@}"              # join args with newlines
+    local temp=(${(s:,:)raw_paths})           # split on commas first
+    # Now split each part by newlines
+    local paths=()
+    for part in $temp; do
+      paths+=(${(f)part})                     # split on newlines
+    done
 
-    paths=(${paths##[[:space:]]})   # Trim leading spaces
-    paths=(${paths%%[[:space:]]})   # Trim trailing spaces
-    paths=(${~paths})               # Expand tilde
-     paths=(${paths:#})             # Remove empty elements
+    # Process each path
+    paths=(${paths##[[:space:]]})             # Trim leading spaces
+    paths=(${paths%%[[:space:]]})             # Trim trailing spaces
+    paths=(${~paths})                         # Expand tilde
+    paths=(${paths:#})                        # Remove empty elements
+
     echo ${paths}
-  }
+}
 
   ## Iterate over all profiles to get the name, email, signingkey and path
   for profile in ${profiles}; do
