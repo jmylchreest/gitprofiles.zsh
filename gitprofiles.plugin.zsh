@@ -30,23 +30,19 @@ function __gitprofiles_hook() {
     return 1
   fi
 
+  # Ensure glob patterns that don't match don't cause errors
+  setopt LOCAL_OPTIONS NO_NOMATCH
+
   # Function to parse paths into an array and support tidle expansion
   function __parse_paths() {
-    local raw_paths="$1"
-    # First split by comma
-    local paths=(${(s:,:)raw_paths})
+    local raw_paths="${(j:\n:)@}" # join on newlines
+    local paths=(${(f)${(s:,:)raw_paths}}) # split on commas & newlines
 
-    # Then expand each path
-    local expanded_paths=()
-    for path in $paths; do
-      # Trim whitespace and expand tilde
-      path="${path## }"
-      path="${path%% }"
-      path="${path:gs/~/$HOME}"
-      expanded_paths+=($path)
-    done
-
-    echo ${expanded_paths}
+    paths=(${paths##[[:space:]]})   # Trim leading spaces
+    paths=(${paths%%[[:space:]]})   # Trim trailing spaces
+    paths=(${~paths})               # Expand tilde
+     paths=(${paths:#})             # Remove empty elements
+    echo ${paths}
   }
 
   ## Iterate over all profiles to get the name, email, signingkey and path
@@ -81,19 +77,16 @@ function __gitprofiles_hook() {
   local current_dir=$(pwd)
   local matched_profile="default"
 
+  [[ -n "${DEBUG}" ]] && echo "Current directory: ${current_dir}"
+
   # Check if current directory matches any profile paths
   for profile in ${(k)profile_paths_map}; do
+    [[ -n "${DEBUG}" ]] && echo "Testing Profile: ${profile}"
+
     local paths=(${=profile_paths_map[${profile}]})  # Convert to array
 
     for path_pattern in $paths; do
-      # Remove leading/trailing whitespace
-      path_pattern="${path_pattern## }"
-      path_pattern="${path_pattern%% }"
-
-      if [[ -n "${DEBUG}"]]; then
-        echo "Checking path pattern: ${path_pattern}"
-        echo "Current directory: ${current_dir}"
-      fi
+      [[ -n "${DEBUG}" ]] && echo "Checking path pattern: ${path_pattern}"
 
       if [[ "${current_dir}" =~ "${path_pattern}" ]]; then
         matched_profile="${profile}"
@@ -113,7 +106,6 @@ function __gitprofiles_hook() {
 
   # Print debug information if DEBUG is set
   if [[ -n "${DEBUG}" ]]; then
-    echo "Current directory: ${current_dir}"
     echo "Matched profile: ${matched_profile}"
     echo "Using configuration:"
     echo "  name: ${profile_cfg_map[${matched_profile}.name]}"
