@@ -203,12 +203,12 @@ function __gitprofiles_hook() {
   fi
 
   ## Set the current profile name and email
-  git config --global user.name "${profile_cfg_map[${matched_profile}.name]}"
-  git config --global user.email "${profile_cfg_map[${matched_profile}.email]}"
+  git config user.name "${profile_cfg_map[${matched_profile}.name]}"
+  git config user.email "${profile_cfg_map[${matched_profile}.email]}"
 
   ## Set the current profile signingkey if it exists
   if [[ -n "${profile_cfg_map[${matched_profile}.signingkey]}" ]]; then
-    git config --global user.signingkey "${profile_cfg_map[${matched_profile}.signingkey]}"
+    git config user.signingkey "${profile_cfg_map[${matched_profile}.signingkey]}"
   fi
 
   # Print debug information if GP_DEBUG is set
