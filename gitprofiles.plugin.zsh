@@ -4,9 +4,18 @@
 # vim: set ts=4 sw=4 tw=0 et :
 #!/usr/bin/env zsh
 
+function __is_git_repo() {
+  # if git isnt installes, this will also return false
+  if [[ -n "$(git rev-parse --is-inside-work-tree 2>/dev/null)" ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
 function __gitprofiles_hook() {
-  ## Check if git is installed
-  if (( ! $+commands[git] )); then
+  # make sure we're in a git repo
+  if ! __is_git_repo; then
     return 1
   fi
 
@@ -36,7 +45,7 @@ function __gitprofiles_hook() {
     if [[ "$line" =~ '^\[profile[[:space:]]+"([^"]+)"\]' ]]; then
       current_section="${match[1]}"
       profiles+=("$current_section")
-      [[ -n "${GP_DEBUG}" ]] && print -u2 "Found profile: ${current_section}"
+      # [[ -n "${GP_DEBUG}" ]] && print -u2 "Found profile: ${current_section}"
     fi
   done < "${profile_filepath}"
 
@@ -161,20 +170,37 @@ function __gitprofiles_hook() {
 
   [[ -n "${GP_DEBUG}" ]] && print -u2 "Current directory: ${current_dir}"
 
-  # Check if current directory matches any profile paths
+  # First pass: Check for exact matches
   for profile in ${(k)profile_paths_map}; do
-    [[ -n "${GP_DEBUG}" ]] && print -u2 "Testing Profile: ${profile}"
+    [[ -n "${GP_DEBUG}" ]] && print -u2 "Testing Profile (exact): ${profile}"
 
     local paths=(${=profile_paths_map[$profile]})  # Convert to array
     for path_pattern in $paths; do
-      [[ -n "${GP_DEBUG}" ]] && print -u2 "Testing path pattern: ${path_pattern}"
-
-      if [[ "${current_dir}" =~ "${path_pattern}" ]]; then
+      # Only do exact match if pattern doesn't contain a wildcard
+      if [[ ! $path_pattern =~ '[*?]' ]] && [[ "${current_dir}" = "${path_pattern}" ]]; then
+        [[ -n "${GP_DEBUG}" ]] && print -u2 "Matched (exact) path: ${path_pattern}"
         matched_profile="${profile}"
         break 2
       fi
     done
   done
+
+  # Second pass: Check for wildcard matches (only if no exact match found)
+  if [[ "${matched_profile}" = "default" ]]; then
+    for profile in ${(k)profile_paths_map}; do
+      [[ -n "${GP_DEBUG}" ]] && print -u2 "Testing Profile (wildcard): ${profile}"
+
+      local paths=(${=profile_paths_map[$profile]})  # Convert to array
+      for path_pattern in $paths; do
+        # Only do regex match if we have a wildcard
+        if [[ $path_pattern =~ '[*?]' ]] && [[ "${current_dir}" =~ "${path_pattern}" ]]; then
+        [[ -n "${GP_DEBUG}" ]] && print -u2 "Matched (*) path: ${path_pattern}"
+          matched_profile="${profile}"
+          break 2
+        fi
+      done
+    done
+  fi
 
   ## Set the current profile name and email
   git config --global user.name "${profile_cfg_map[${matched_profile}.name]}"
