@@ -49,9 +49,9 @@ zgenom load empresslabs/gitprofiles.plugin.zsh
 zplug empresslabs/gitprofiles.plugin.zsh
 ```
 
-#### [antibody](https://github.com/getantibody/antibody)
+#### [antidote](https://github.com/mattmc3/antidote.git)
 
-Add the following to your .zsh_plugins.txt file for antibody:
+Add the following to your .zsh_plugins.txt file for antidote:
 
 ```shell
 empresslabs/gitprofiles.plugin.zsh
