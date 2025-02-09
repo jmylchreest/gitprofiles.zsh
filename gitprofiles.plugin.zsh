@@ -46,7 +46,7 @@ function __gitprofiles_hook() {
       expanded_paths+=($path)
     done
 
-    echo $(expanded_paths}
+    echo ${expanded_paths}
   }
 
   ## Iterate over all profiles to get the name, email, signingkey and path
